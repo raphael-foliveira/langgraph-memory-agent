@@ -1,4 +1,5 @@
 from langgraph.store.base import BaseStore
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.store.postgres.base import PostgresIndexConfig
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -17,6 +18,8 @@ from llm.memory import LongTermMemory
 from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 import os
 from pydantic import SecretStr
+
+from services.chat import ChatService
 
 _environment: dict[str, str] = {}
 
@@ -75,6 +78,7 @@ async def get_postgres_vector_store(
         collection_name="tibia_data",
     )
 
+
 async def get_postgres_store_config(
     embeddings: GoogleGenerativeAIEmbeddings = Depends(
         get_google_generative_ai_embeddings
@@ -86,6 +90,7 @@ async def get_postgres_store_config(
         "dims": 3072,
     }
 
+
 async def get_postgres_store(
     dsn: str = Depends(get_postgres_dsn),
     config: PostgresIndexConfig = Depends(get_postgres_store_config),
@@ -94,11 +99,13 @@ async def get_postgres_store(
         dsn,
         index=config,
     ) as store:
+        await store.setup()
         yield store
 
 
 async def get_postgres_checkpointer(dsn: str = Depends(get_postgres_dsn)):
     async with AsyncPostgresSaver.from_conn_string(dsn) as checkpointer:
+        await checkpointer.setup()
         yield checkpointer
 
 
@@ -157,6 +164,16 @@ async def get_main_graph(
         checkpointer=checkpointer,
         store=store,
         tools=tools,
+    )
+
+
+async def get_chat_service(
+    thread_id: str = Path(...),
+    graph: CompiledStateGraph = Depends(get_main_graph),
+):
+    return ChatService(
+        thread_id=thread_id,
+        graph=graph,
     )
 
 

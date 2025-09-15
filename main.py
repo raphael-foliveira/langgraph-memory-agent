@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Placeholder for app initialization"""
     yield
-    
 
 
 def create_app():
